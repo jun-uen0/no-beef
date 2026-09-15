@@ -1,5 +1,5 @@
 import type { DetectedPost, Verdict } from '../src/core/types';
-import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG, type NoBeefConfig } from '../src/core/config';
+import { loadConfig } from '../src/core/load-config';
 import {
   MSG_ANALYZE,
   MSG_REWRITE,
@@ -21,15 +21,6 @@ type PostState = 'pending' | Verdict;
  */
 const PENDING_COVER_VERDICT: Verdict = { severity: 'harmful', score: 0, source: 'none' };
 
-async function loadConfig(): Promise<NoBeefConfig> {
-  try {
-    const stored = await chrome.storage.sync.get(CONFIG_STORAGE_KEY);
-    const value = stored[CONFIG_STORAGE_KEY] as Partial<NoBeefConfig> | undefined;
-    return value ? { ...DEFAULT_CONFIG, ...value } : DEFAULT_CONFIG;
-  } catch {
-    return DEFAULT_CONFIG;
-  }
-}
 
 async function requestAnalysis(post: DetectedPost): Promise<AnalyzeResponse> {
   const message: AnalyzeMessage = { type: MSG_ANALYZE, text: post.text };

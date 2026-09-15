@@ -3,6 +3,10 @@ import { LexiconClassifier } from '../src/adapters/classifier/lexicon/lexicon-cl
 import { OffscreenClassifierProxy } from '../src/adapters/classifier/offscreen-proxy';
 import { GeminiNanoClassifier } from '../src/adapters/classifier/gemini-nano/gemini-nano-classifier';
 import { GeminiNanoRewriter } from '../src/adapters/rewriter/gemini-nano/gemini-nano-rewriter';
+import { NativeBridgeClassifier } from '../src/adapters/bridge/native/native-bridge-classifier';
+import { NativeBridgeRewriter } from '../src/adapters/bridge/native/native-bridge-rewriter';
+import { loadConfig } from '../src/core/load-config';
+import type { ClassifierPort, RewriterPort } from '../src/core/ports';
 import { looksLikeSarcasm } from '../src/core/sarcasm-hint';
 import { MemoryCache } from '../src/adapters/cache/memory-cache';
 import { IndexedDbCache } from '../src/adapters/cache/indexeddb-cache';
@@ -35,10 +39,20 @@ declare global {
 
   type NoBeefSendResponse = (response?: unknown) => void;
 
+  /** A native messaging port. Only the surface the bridge adapter touches. */
+  interface NoBeefPort {
+    postMessage(message: unknown): void;
+    disconnect(): void;
+    onMessage: { addListener(callback: (message: unknown) => void): void };
+    onDisconnect: { addListener(callback: () => void): void };
+  }
+
   interface NoBeefRuntime {
     sendMessage(message: unknown): Promise<unknown>;
     /** Absolute URL of a file packaged with the extension, e.g. "wasm/". */
     getURL(path: string): string;
+    /** Throws synchronously when no host is registered under this name. */
+    connectNative(application: string): NoBeefPort;
     onMessage: {
       addListener(
         callback: (
@@ -64,12 +78,38 @@ declare global {
 }
 
 export default defineBackground(() => {
+  /**
+   * Stage 3 and rewriting come from one place or the other, never both, and
+   * which one is the reader's choice (ADR 0009). Resolved per call rather than
+   * at startup, so flipping the setting takes effect without reloading the
+   * extension — and so the native path stays untouched until somebody asks
+   * for it.
+   */
+  const builtinClassifier = new GeminiNanoClassifier();
+  const bridgeClassifier = new NativeBridgeClassifier();
+  const builtinRewriter = new GeminiNanoRewriter();
+  const bridgeRewriter = new NativeBridgeRewriter();
+
+  const generativeClassifier: ClassifierPort = {
+    async classify(req) {
+      const { bridge } = await loadConfig();
+      return bridge === 'native' ? bridgeClassifier.classify(req) : builtinClassifier.classify(req);
+    },
+  };
+
+  const rewriter: RewriterPort = {
+    async rewrite(req) {
+      const { bridge } = await loadConfig();
+      return bridge === 'native' ? bridgeRewriter.rewrite(req) : builtinRewriter.rewrite(req);
+    },
+  };
+
   const pipeline = new AnalysisPipeline({
     stages: [
       new LexiconClassifier(),
       new OffscreenClassifierProxy(),
       {
-        classifier: new GeminiNanoClassifier(),
+        classifier: generativeClassifier,
         // Stage 3 is orders of magnitude costlier than the two above it, so it
         // only sees posts the classifier was unsure about, plus posts that read
         // like polite condescension — which score near zero on a toxicity model
@@ -81,9 +121,7 @@ export default defineBackground(() => {
   });
 
   // Rewriting is not a pipeline stage: it never runs while a feed is being
-  // read, only when someone presses the control on a cover (ADR 0007). One
-  // instance, because it holds the base session the clones come from.
-  const rewriter = new GeminiNanoRewriter();
+  // read, only when someone presses the control on a cover (ADR 0007).
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (isAnalyzeMessage(message)) {

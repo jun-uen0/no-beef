@@ -21,6 +21,7 @@ const modeRevealFirstInput = requireElement<HTMLInputElement>('mode-reveal-first
 const modeCoverFirstInput = requireElement<HTMLInputElement>('mode-cover-first');
 const harmfulThresholdInput = requireElement<HTMLInputElement>('harmfulThreshold');
 const mildThresholdInput = requireElement<HTMLInputElement>('mildThreshold');
+const bridgeNativeInput = requireElement<HTMLInputElement>('bridge-native');
 const harmfulThresholdValue = requireElement<HTMLElement>('harmfulThreshold-value');
 const mildThresholdValue = requireElement<HTMLElement>('mildThreshold-value');
 const statusEl = requireElement<HTMLElement>('status');
@@ -37,6 +38,7 @@ function applyConfigToForm(config: NoBeefConfig): void {
   modeCoverFirstInput.checked = config.mode === 'cover-first';
   harmfulThresholdInput.value = String(config.harmfulThreshold);
   mildThresholdInput.value = String(config.mildThreshold);
+  bridgeNativeInput.checked = config.bridge === 'native';
   updateThresholdLabels();
 }
 
@@ -47,6 +49,7 @@ function readConfigFromForm(): NoBeefConfig {
     mode: modeCoverFirstInput.checked ? 'cover-first' : 'reveal-first',
     harmfulThreshold: Number(harmfulThresholdInput.value),
     mildThreshold: Number(mildThresholdInput.value),
+    bridge: bridgeNativeInput.checked ? 'native' : 'builtin',
   };
 }
 
@@ -141,6 +144,7 @@ async function init(): Promise<void> {
   modeCoverFirstInput.addEventListener('change', onFormChange);
   harmfulThresholdInput.addEventListener('input', onFormChange);
   mildThresholdInput.addEventListener('input', onFormChange);
+  bridgeNativeInput.addEventListener('change', onFormChange);
   nanoDownloadButton.addEventListener('click', () => void onNanoDownloadClick());
 
   await refreshNanoStatus();

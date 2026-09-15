@@ -9,6 +9,15 @@ export interface NoBeefConfig {
   harmfulThreshold: number;
   /** Classifier score at or above this is 'mild' (shown, may be dimmed later). */
   mildThreshold: number;
+  /**
+   * Where stage 3 and rewriting come from.
+   *
+   * 'builtin' uses Chrome's on-device model. 'native' hands the work to an
+   * agent the reader runs themselves, over native messaging (ADR 0009) — off
+   * by default, so the nativeMessaging permission is never exercised unless
+   * somebody has deliberately set one up.
+   */
+  bridge: 'builtin' | 'native';
 }
 
 export const DEFAULT_CONFIG: NoBeefConfig = {
@@ -16,6 +25,7 @@ export const DEFAULT_CONFIG: NoBeefConfig = {
   mode: 'reveal-first',
   harmfulThreshold: 0.8,
   mildThreshold: 0.5,
+  bridge: 'builtin',
 };
 
 /** chrome.storage.sync key holding the user config. */

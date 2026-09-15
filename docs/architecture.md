@@ -21,6 +21,9 @@
 │   cache : MemoryCache(L1)+IndexedDbCache(L2)         │
 │   └ chrome.runtime.sendMessage(MSG_CLASSIFY)         │
 │ GeminiNanoRewriter(Prompt API・段ではない)           │
+│ ※stage3と言い換えは設定bridgeで切り替わる            │
+│   'builtin'=Gemini Nano／'native'=利用者のエージェント│
+│   (既定はbuiltin。ADR 0009)                          │
 │   └ 生成文はcheckRewriteを通してから返す            │
 └──────────────────────────────────────────────────────┘
                     ↓
@@ -44,8 +47,8 @@
 
 | ポート | MVP実装 | 将来の差し替え |
 |---|---|---|
-| `ClassifierPort` | lexicon／onnx(offscreen)／gemini-nano(background) | webllm・BYOブリッジ(M4) |
-| `RewriterPort` | gemini-nano(background・要求時のみ) | BYOブリッジ(M4) |
+| `ClassifierPort` | lexicon／onnx(offscreen)／gemini-nano／native-bridge | webllm |
+| `RewriterPort` | gemini-nano／native-bridge(どちらも要求時のみ) | (なし) |
 | `CachePort` | memory(L1)・indexeddb(L2) | 共有基盤(ADR 0002改訂が前提) |
 | `SiteAdapter` | x | 他SNS(YouTubeコメント等) |
 
@@ -54,8 +57,8 @@
 - M1(完了)：X・日本語・カバー非表示のみ(①+②)
 - M2(完了)：Gemini Nanoアダプタ(グレーゾーン・皮肉判定)。stage3の発火条件はADR 0004
 - M3(現在)：言い換え(RewriterPort)。出し方と生成文の扱いはADR 0007
-- M4：BYOブリッジ(ネイティブメッセージング→ユーザ自身のエージェント)
-- M5：Chrome Web Store公開準備
+- M4(完了)：BYOブリッジ(ネイティブメッセージング→ユーザ自身のエージェント)。プロトコルと信頼境界はADR 0009・受け側は`host/`
+- M5(進行中)：Chrome Web Store公開準備。残りは`docs/store-submission.md`
 
 ## テスト
 
