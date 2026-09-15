@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Launch the dedicated automation Chrome (CDP :9239) with the dev build of the
+# extension loaded. Follows the agent-browser conventions (per-project port and
+# profile; see ~/Documents/git/agent-browser/ports.local.md) but lives in this
+# repo because agent-browser's launcher does not support --load-extension.
+#
+# Usage: bash scripts/launch-test-chrome.sh
+# Close:  CLAUDE_BROWSER_CDP_PORT=9239 \
+#         CLAUDE_BROWSER_CHROME_DATA=$HOME/.claude/claude-browser/chrome-data-nobeef \
+#         bash ~/Documents/git/agent-browser/scripts/close-cdp-chrome.sh
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PORT="${CLAUDE_BROWSER_CDP_PORT:-9239}"
+DATA_DIR="${CLAUDE_BROWSER_CHROME_DATA:-$HOME/.claude/claude-browser/chrome-data-nobeef}"
+EXT_DIR="${NOBEEF_EXT_DIR:-$REPO_DIR/.output/chrome-mv3}"
+
+if [ ! -f "$EXT_DIR/manifest.json" ]; then
+  echo "ERROR: no build found at ${EXT_DIR}. Run 'npm run build' first." >&2
+  exit 1
+fi
+
+mkdir -p "$DATA_DIR"
+
+# Same unthrottle flags as agent-browser's launcher: an occluded window stops
+# rendering and Playwright click/type times out (see its launch-cdp-chrome.sh).
+open -na "Google Chrome" --args \
+  --remote-debugging-port="$PORT" \
+  --user-data-dir="$DATA_DIR" \
+  --no-first-run \
+  --no-default-browser-check \
+  --disable-backgrounding-occluded-windows \
+  --disable-renderer-backgrounding \
+  --disable-background-timer-throttling \
+  --load-extension="$EXT_DIR"
+
+n=0
+until curl -s -m 2 "http://127.0.0.1:${PORT}/json/version" >/dev/null 2>&1; do
+  n=$((n + 1))
+  [ "$n" -ge 40 ] && { echo "ERROR: CDP did not respond on :${PORT} within 20s." >&2; exit 1; }
+  sleep 0.5
+done
+echo "OK: Chrome with extension is up. CDP: http://127.0.0.1:${PORT}"

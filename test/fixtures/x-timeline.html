@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<title>no-beef test fixture</title>
+</head>
+<body>
+<h1>no-beef test fixture</h1>
+
+<!--
+  Self-contained approximation of X's timeline DOM. No external resources.
+
+  data-expected is TEST-ONLY metadata (this attribute does not exist on the
+  real site and the extension code never reads it). It records what a
+  correct classifier/site-adapter pipeline should decide for each tweet, so
+  test code can assert against it without duplicating the Japanese text:
+    - "harmful": blatant hostility, should end up covered
+    - "safe": ordinary content, should stay visible
+    - "gray": polite-sounding but sarcastic/backhanded, ambiguous on purpose
+-->
+
+<div data-testid="primaryColumn">
+  <section aria-label="Timeline: Home">
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="harmful">
+        <a href="/user/status/17045000001">17045000001</a>
+        <div data-testid="tweetText">死ね、二度と来るな。</div>
+      </article>
+    </div>
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="safe">
+        <a href="/user/status/17045000002">17045000002</a>
+        <div data-testid="tweetText">今日は雲ひとつない快晴で、洗濯物がよく乾きそう。</div>
+      </article>
+    </div>
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="safe">
+        <a href="/user/status/17045000003">17045000003</a>
+        <div data-testid="tweetText">近所に新しくできたラーメン屋、煮干し出汁が効いてて美味しかった。</div>
+      </article>
+    </div>
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="harmful">
+        <a href="/user/status/17045000004">17045000004</a>
+        <div data-testid="tweetText">お前みたいなカスは消えろ。</div>
+      </article>
+    </div>
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="gray">
+        <a href="/user/status/17045000005">17045000005</a>
+        <div data-testid="tweetText">さすがですね、そのご意見を思いつくとは頭の作りが違うんでしょうね。</div>
+      </article>
+    </div>
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="safe">
+        <a href="/user/status/17045000006">17045000006</a>
+        <div data-testid="tweetText">TypeScriptのstrictモード、最初は面倒だけど後から効いてくる。</div>
+      </article>
+    </div>
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="harmful">
+        <a href="/user/status/17045000007">17045000007</a>
+        <div data-testid="tweetText">氏ねって言われても仕方ないくらいの内容だな。</div>
+      </article>
+    </div>
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="safe">
+        <a href="/user/status/17045000008">17045000008</a>
+        <div data-testid="tweetText">週末は自転車で川沿いを走ってきた。気持ちよかった。</div>
+      </article>
+    </div>
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="gray">
+        <a href="/user/status/17045000009">17045000009</a>
+        <div data-testid="tweetText">丁寧に説明していただいて恐縮です、次はもう少しご自分でお調べになってから聞いていただけると助かります。</div>
+      </article>
+    </div>
+
+    <div data-testid="cellInnerDiv">
+      <article data-testid="tweet" data-expected="safe">
+        <a href="/user/status/17045000010">17045000010</a>
+        <div data-testid="tweetText">読みかけの小説、続きが気になって夜更かししてしまった。</div>
+      </article>
+    </div>
+
+  </section>
+</div>
+
+<script>
+  // Simulate the site inserting freshly loaded cells as the user scrolls.
+  setTimeout(function () {
+    var section = document.querySelector('[data-testid="primaryColumn"] section');
+
+    var safeCell = document.createElement('div');
+    safeCell.setAttribute('data-testid', 'cellInnerDiv');
+    safeCell.innerHTML =
+      '<article data-testid="tweet" data-expected="safe">' +
+      '<a href="/user/status/17045000011">17045000011</a>' +
+      '<div data-testid="tweetText">駅前にできたカフェ、コーヒーが安定して美味しい。</div>' +
+      '</article>';
+
+    var harmfulCell = document.createElement('div');
+    harmfulCell.setAttribute('data-testid', 'cellInnerDiv');
+    harmfulCell.innerHTML =
+      '<article data-testid="tweet" data-expected="harmful">' +
+      '<a href="/user/status/17045000012">17045000012</a>' +
+      '<div data-testid="tweetText">クソ野郎、二度とツイートするな。</div>' +
+      '</article>';
+
+    section.appendChild(safeCell);
+    section.appendChild(harmfulCell);
+  }, 3000);
+
+  // Simulate virtual-scroll node recycling: a cell is removed, then an
+  // equivalent cell (same tweet id/text) is re-inserted a second later.
+  // The re-inserted post is deliberately harmful so tests can verify the
+  // site adapter re-covers a recycled node instead of assuming "already
+  // seen == already safe".
+  setTimeout(function () {
+    var section = document.querySelector('[data-testid="primaryColumn"] section');
+    var target = document.querySelector('a[href="/user/status/17045000004"]');
+    var cell = target ? target.closest('[data-testid="cellInnerDiv"]') : null;
+    if (cell) {
+      cell.remove();
+
+      setTimeout(function () {
+        var recycledCell = document.createElement('div');
+        recycledCell.setAttribute('data-testid', 'cellInnerDiv');
+        recycledCell.innerHTML =
+          '<article data-testid="tweet" data-expected="harmful">' +
+          '<a href="/user/status/17045000004">17045000004</a>' +
+          '<div data-testid="tweetText">お前みたいなカスは消えろ。</div>' +
+          '</article>';
+        section.appendChild(recycledCell);
+      }, 1000);
+    }
+  }, 5000);
+</script>
+</body>
+</html>
