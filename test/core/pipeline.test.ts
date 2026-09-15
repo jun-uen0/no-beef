@@ -116,4 +116,76 @@ describe('AnalysisPipeline', () => {
     await pipeline.analyze({ text: 'ccc' });
     expect(classify).not.toHaveBeenCalled(); // still cached -> hit
   });
+
+  it('skips a gated stage when its condition does not hold', async () => {
+    const cheap = stage(async () => ({ severity: 'safe', score: 0.05, source: 'classifier' }) satisfies Verdict);
+    const expensive = stage(async () => ({ severity: 'harmful', score: 0.9, source: 'llm' }) satisfies Verdict);
+
+    const pipeline = new AnalysisPipeline({
+      stages: [cheap, { classifier: expensive, shouldRun: (_req, current) => current.score >= 0.5 }],
+      cache: new StubCache(),
+    });
+    const verdict = await pipeline.analyze({ text: '普通の投稿' });
+
+    expect(cheap.classify).toHaveBeenCalledTimes(1);
+    expect(expensive.classify).not.toHaveBeenCalled();
+    expect(verdict.score).toBe(0.05);
+  });
+
+  it('runs a gated stage when its condition holds', async () => {
+    const cheap = stage(async () => ({ severity: 'mild', score: 0.6, source: 'classifier' }) satisfies Verdict);
+    const expensive = stage(async () => ({ severity: 'harmful', score: 0.9, source: 'llm' }) satisfies Verdict);
+
+    const pipeline = new AnalysisPipeline({
+      stages: [cheap, { classifier: expensive, shouldRun: (_req, current) => current.score >= 0.5 }],
+      cache: new StubCache(),
+    });
+    const verdict = await pipeline.analyze({ text: 'グレーな投稿' });
+
+    expect(expensive.classify).toHaveBeenCalledTimes(1);
+    expect(verdict.severity).toBe('harmful');
+    expect(verdict.source).toBe('llm');
+  });
+
+  it('lets a gate see the request, not just the accumulated verdict', async () => {
+    // Polite sarcasm scores near zero on a toxicity classifier, so the gate that
+    // matters for the LLM stage keys off the request rather than the score.
+    const cheap = stage(async () => ({ severity: 'safe', score: 0.02, source: 'classifier' }) satisfies Verdict);
+    const llm = stage(async () => ({ severity: 'harmful', score: 0.88, source: 'llm' }) satisfies Verdict);
+    const shouldRun = vi.fn((req: { lang?: string }) => req.lang === 'ja');
+
+    const pipeline = new AnalysisPipeline({
+      stages: [cheap, { classifier: llm, shouldRun }],
+      cache: new StubCache(),
+    });
+
+    const ja = await pipeline.analyze({ text: 'さすがですね、頭の作りが違う', lang: 'ja' });
+    expect(ja.source).toBe('llm');
+
+    const en = await pipeline.analyze({ text: 'nice work as always', lang: 'en' });
+    expect(en.source).toBe('classifier');
+    expect(llm.classify).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the stage when its gate throws, rather than running it', async () => {
+    const cheap = stage(async () => ({ severity: 'safe', score: 0.1, source: 'classifier' }) satisfies Verdict);
+    const expensive = stage(async () => ({ severity: 'harmful', score: 0.9, source: 'llm' }) satisfies Verdict);
+
+    const pipeline = new AnalysisPipeline({
+      stages: [
+        cheap,
+        {
+          classifier: expensive,
+          shouldRun: () => {
+            throw new Error('gate blew up');
+          },
+        },
+      ],
+      cache: new StubCache(),
+    });
+    const verdict = await pipeline.analyze({ text: 'whatever' });
+
+    expect(expensive.classify).not.toHaveBeenCalled();
+    expect(verdict.score).toBe(0.1);
+  });
 });

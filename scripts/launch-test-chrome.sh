@@ -50,6 +50,27 @@ fi
 
 mkdir -p "$DATA_DIR"
 
+# Chrome caches the extension's service worker script and, because the manifest
+# version never changes between dev builds, happily keeps running the OLD one
+# after `npm run build` — so verification silently measures stale code. (This
+# really happened: a run "passed" on verdicts produced by a previous build.)
+#
+# The whole Service Worker directory goes, not just ScriptCache: removing the
+# script while leaving its registration behind leaves the extension unable to
+# start its worker at all. The cost is re-downloading the ~136MB ONNX model into
+# CacheStorage, which the verification script already budgets time for.
+# Set NOBEEF_KEEP_SW_CACHE=1 to skip this when re-running without a rebuild.
+if [ "${NOBEEF_KEEP_SW_CACHE:-0}" != "1" ]; then
+  rm -rf "${DATA_DIR}/Default/Service Worker"
+  # The verdict cache goes too, for the same reason: a run that answers from
+  # IndexedDB never reaches a single stage, so it measures nothing while looking
+  # like a pass. Doing it here, with the browser closed, is the only reliable
+  # way — CDP's Storage.clearDataForOrigin silently does nothing for a
+  # chrome-extension:// origin, and driving IndexedDB from inside the worker
+  # stalls against the connection the extension already holds open.
+  rm -rf "${DATA_DIR}"/Default/IndexedDB/chrome-extension_*
+fi
+
 # Same unthrottle flags as agent-browser's launcher: an occluded window stops
 # rendering and Playwright click/type times out (see its launch-cdp-chrome.sh).
 # Launched via the binary directly (not `open`): the Playwright-cached app is
