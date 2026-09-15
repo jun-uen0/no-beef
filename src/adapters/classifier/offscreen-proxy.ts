@@ -1,4 +1,6 @@
+import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG, type NoBeefConfig } from '../../core/config';
 import type { ClassifierPort } from '../../core/ports';
+import { severityFor } from '../../core/severity';
 import type { AnalyzeRequest, Verdict } from '../../core/types';
 import { MSG_CLASSIFY, type ClassifyMessage, type ClassifyResponse } from '../../messaging/protocol';
 import { withTimeout } from '../../core/timeout';
@@ -29,7 +31,13 @@ export class OffscreenClassifierProxy implements ClassifierPort {
 
     try {
       const response = await withTimeout(chrome.runtime.sendMessage(message), CLASSIFY_TIMEOUT_MS, 'offscreen classify');
-      return (response as ClassifyResponse) ?? null;
+      const result = (response as ClassifyResponse) ?? null;
+      if (!result) return null;
+      // Severity is decided here rather than in the offscreen document: this
+      // runs in the background, which is the only side of the pair that can
+      // read the user's thresholds at all.
+      const config = await loadConfig();
+      return { severity: severityFor(result.score, config), score: result.score, source: 'classifier' };
     } catch {
       return null;
     }
@@ -55,5 +63,15 @@ export class OffscreenClassifierProxy implements ClassifierPort {
       reasons: ['WORKERS'],
       justification: 'Run ONNX toxicity classification with WASM workers',
     });
+  }
+}
+
+async function loadConfig(): Promise<NoBeefConfig> {
+  try {
+    const stored = await chrome.storage.sync.get(CONFIG_STORAGE_KEY);
+    const value = stored[CONFIG_STORAGE_KEY] as Partial<NoBeefConfig> | undefined;
+    return value ? { ...DEFAULT_CONFIG, ...value } : DEFAULT_CONFIG;
+  } catch {
+    return DEFAULT_CONFIG;
   }
 }

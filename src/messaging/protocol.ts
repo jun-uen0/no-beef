@@ -40,8 +40,20 @@ export interface RewriteResponse {
   rewritten: string | null;
 }
 
-/** Offscreen answers background with a verdict or null ("no opinion" / model unavailable). */
-export type ClassifyResponse = Verdict | null;
+/**
+ * Offscreen answers background with the model's toxicity score, or null for
+ * "no opinion" (model unavailable, or a label set it cannot read).
+ *
+ * A score rather than a Verdict on purpose: turning a score into a severity
+ * needs the reader's thresholds, and an offscreen document cannot read them —
+ * only chrome.runtime exists there, so chrome.storage is undefined. The
+ * background does that half.
+ */
+export interface ClassifyResult {
+  score: number;
+}
+
+export type ClassifyResponse = ClassifyResult | null;
 
 export type NoBeefMessage = AnalyzeMessage | ClassifyMessage | RewriteMessage;
 

@@ -1,6 +1,4 @@
 import { env, pipeline, type TextClassificationPipelineType, type TextClassificationSingle } from '@huggingface/transformers';
-import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG, type NoBeefConfig } from '../../src/core/config';
-import type { Verdict } from '../../src/core/types';
 import { isClassifyMessage, type ClassifyResponse } from '../../src/messaging/protocol';
 import { toxicScore } from '../../src/adapters/classifier/onnx/labels';
 
@@ -48,23 +46,16 @@ function getClassifier(): Promise<TextClassificationPipelineType | null> {
   return classifierPromise;
 }
 
-async function loadConfig(): Promise<NoBeefConfig> {
-  try {
-    const stored = await chrome.storage.sync.get(CONFIG_STORAGE_KEY);
-    const value = stored[CONFIG_STORAGE_KEY] as Partial<NoBeefConfig> | undefined;
-    return value ? { ...DEFAULT_CONFIG, ...value } : DEFAULT_CONFIG;
-  } catch {
-    return DEFAULT_CONFIG;
-  }
-}
-
-function severityFor(score: number, config: NoBeefConfig): Verdict['severity'] {
-  if (score >= config.harmfulThreshold) return 'harmful';
-  if (score >= config.mildThreshold) return 'mild';
-  return 'safe';
-}
-
-async function classify(text: string): Promise<Verdict | null> {
+/**
+ * Runs the model and reports its score. Deliberately stops there.
+ *
+ * This document only has chrome.runtime — an offscreen document gets no other
+ * extension API, so chrome.storage is undefined here and every attempt to read
+ * the user's thresholds threw, fell back to the defaults, and made the options
+ * page's sliders do nothing for this stage. Severity is decided in the
+ * background now, where the config actually exists.
+ */
+async function classify(text: string): Promise<ClassifyResponse> {
   const classifier = await getClassifier();
   if (!classifier) return null;
 
@@ -87,15 +78,14 @@ async function classify(text: string): Promise<Verdict | null> {
     return null;
   }
 
-  const config = await loadConfig();
-  return { severity: severityFor(score, config), score, source: 'classifier' };
+  return { score };
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!isClassifyMessage(message)) return;
 
   classify(message.text)
-    .then((verdict) => sendResponse(verdict satisfies ClassifyResponse))
+    .then((result) => sendResponse(result satisfies ClassifyResponse))
     .catch(() => sendResponse(null));
 
   return true; // keep the message channel open for the async sendResponse above
