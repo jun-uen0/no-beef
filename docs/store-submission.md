@@ -38,4 +38,4 @@ node scripts/verify-fixture.mjs   # カバーの判定
 node scripts/verify-rewrite.mjs   # 言い換えの導線
 ```
 
-⚠ 最後に**`npm run build`(製品ビルド)でmanifestを目視する**。`content_scripts[0].matches`に`localhost`が残っていないこと、`icons`が4サイズ載っていることを見る。
+⚠ 最後に**`npm run build`(製品ビルド)でmanifestを目視する**。`content_scripts[0].matches`に`localhost`が残っていないこと、`icons`が4サイズ載っていること、`permissions`が`storage`と`offscreen`の2つだけであることを見る。
