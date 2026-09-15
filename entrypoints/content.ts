@@ -1,6 +1,13 @@
 import type { DetectedPost, Verdict } from '../src/core/types';
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG, type NoBeefConfig } from '../src/core/config';
-import { MSG_ANALYZE, type AnalyzeMessage, type AnalyzeResponse } from '../src/messaging/protocol';
+import {
+  MSG_ANALYZE,
+  MSG_REWRITE,
+  type AnalyzeMessage,
+  type AnalyzeResponse,
+  type RewriteMessage,
+  type RewriteResponse,
+} from '../src/messaging/protocol';
 import { XSiteAdapter } from '../src/adapters/site/x/x-site-adapter';
 
 /** A post is 'pending' from the moment we start analyzing it until a Verdict comes back. */
@@ -30,6 +37,12 @@ async function requestAnalysis(post: DetectedPost): Promise<AnalyzeResponse> {
   return response as AnalyzeResponse;
 }
 
+async function requestRewrite(text: string): Promise<string | null> {
+  const message: RewriteMessage = { type: MSG_REWRITE, text };
+  const response = (await chrome.runtime.sendMessage(message)) as RewriteResponse | undefined;
+  return response?.rewritten ?? null;
+}
+
 export default defineContentScript({
   matches: [
     '*://x.com/*',
@@ -53,8 +66,35 @@ export default defineContentScript({
     // an analysis is in flight, and the verdict must land on the live one.
     const nodes = new Map<string, Element>();
 
-    function coverPost(node: Element, verdict: Verdict, id: string): void {
-      adapter.cover(node, verdict, () => revealed.add(id));
+    /**
+     * Rewrites already fetched in this tab, by post id. Kept here rather than
+     * in the background's cache so it dies with the tab: generated text must
+     * not outlive the reading session or sit next to verdicts where a later
+     * reader could mistake it for the post (ADR 0007).
+     */
+    const rewrites = new Map<string, string>();
+
+    function rewriteFor(id: string, text: string): Promise<string | null> {
+      const cached = rewrites.get(id);
+      if (cached !== undefined) return Promise.resolve(cached);
+      return requestRewrite(text)
+        .then((result) => {
+          if (result !== null) rewrites.set(id, result);
+          return result;
+        })
+        .catch(() => null);
+    }
+
+    /**
+     * `text` is the post's own text, and passing it is what offers the rewrite
+     * control. The judging-in-progress cover under cover-first mode omits it:
+     * nothing has read that post yet, so there is nothing to soften.
+     */
+    function coverPost(node: Element, verdict: Verdict, id: string, text?: string): void {
+      adapter.cover(node, verdict, {
+        onReveal: () => revealed.add(id),
+        ...(text === undefined ? {} : { onRewrite: () => rewriteFor(id, text) }),
+      });
     }
 
     function analyze(post: DetectedPost, node: Element, id: string): void {
@@ -64,7 +104,7 @@ export default defineContentScript({
           if (revealed.has(id)) return; // user already opted to see this one
           const target = nodes.get(id) ?? node;
           if (verdict.severity === 'harmful') {
-            coverPost(target, verdict, id);
+            coverPost(target, verdict, id, post.text);
           } else {
             adapter.reveal(target);
           }
@@ -85,7 +125,7 @@ export default defineContentScript({
       const known = state.get(id);
       if (known && known !== 'pending') {
         if (known.severity === 'harmful') {
-          coverPost(node, known, id);
+          coverPost(node, known, id, post.text);
         } else {
           adapter.reveal(node);
         }

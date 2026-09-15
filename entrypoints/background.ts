@@ -2,11 +2,16 @@ import { AnalysisPipeline } from '../src/core/pipeline';
 import { LexiconClassifier } from '../src/adapters/classifier/lexicon/lexicon-classifier';
 import { OffscreenClassifierProxy } from '../src/adapters/classifier/offscreen-proxy';
 import { GeminiNanoClassifier } from '../src/adapters/classifier/gemini-nano/gemini-nano-classifier';
+import { GeminiNanoRewriter } from '../src/adapters/rewriter/gemini-nano/gemini-nano-rewriter';
 import { looksLikeSarcasm } from '../src/core/sarcasm-hint';
 import { MemoryCache } from '../src/adapters/cache/memory-cache';
 import { IndexedDbCache } from '../src/adapters/cache/indexeddb-cache';
 import { LayeredCache } from '../src/adapters/cache/layered-cache';
-import { isAnalyzeMessage } from '../src/messaging/protocol';
+import {
+  isAnalyzeMessage,
+  isRewriteMessage,
+  type RewriteResponse,
+} from '../src/messaging/protocol';
 import { VERDICT_CACHE_NAMESPACE } from '../src/core/config';
 
 /**
@@ -73,15 +78,29 @@ export default defineBackground(() => {
     cache: new LayeredCache(new MemoryCache(), new IndexedDbCache(VERDICT_CACHE_NAMESPACE)),
   });
 
+  // Rewriting is not a pipeline stage: it never runs while a feed is being
+  // read, only when someone presses the control on a cover (ADR 0007). One
+  // instance, because it holds the base session the clones come from.
+  const rewriter = new GeminiNanoRewriter();
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    // Ignore anything that isn't an analyze request — in particular
-    // MSG_CLASSIFY is background -> offscreen only and is never handled here.
-    if (!isAnalyzeMessage(message)) return;
+    if (isAnalyzeMessage(message)) {
+      pipeline
+        .analyze({ text: message.text, lang: message.lang })
+        .then((verdict) => sendResponse(verdict));
+      return true; // keep the message channel open for the async sendResponse above
+    }
 
-    pipeline
-      .analyze({ text: message.text, lang: message.lang })
-      .then((verdict) => sendResponse(verdict));
+    if (isRewriteMessage(message)) {
+      rewriter
+        .rewrite({ text: message.text, lang: message.lang })
+        .then((rewritten) => sendResponse({ rewritten } satisfies RewriteResponse))
+        .catch(() => sendResponse({ rewritten: null } satisfies RewriteResponse));
+      return true;
+    }
 
-    return true; // keep the message channel open for the async sendResponse above
+    // Anything else is not ours to answer — in particular MSG_CLASSIFY is
+    // background -> offscreen only and is never handled here.
+    return;
   });
 });
