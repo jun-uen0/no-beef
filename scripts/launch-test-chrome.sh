@@ -15,6 +15,34 @@ PORT="${CLAUDE_BROWSER_CDP_PORT:-9239}"
 DATA_DIR="${CLAUDE_BROWSER_CHROME_DATA:-$HOME/.claude/claude-browser/chrome-data-nobeef}"
 EXT_DIR="${NOBEEF_EXT_DIR:-$REPO_DIR/.output/chrome-mv3}"
 
+# Branded stable Chrome (observed on 152.x) silently ignores --load-extension,
+# so we need Chrome for Testing / Chromium. Prefer an explicit override, then
+# Playwright's cached Chrome for Testing, then a system Chromium.
+find_chrome_bin() {
+  if [ -n "${NOBEEF_CHROME_BIN:-}" ]; then
+    echo "$NOBEEF_CHROME_BIN"
+    return
+  fi
+  local candidate
+  candidate=$(ls -d "$HOME/Library/Caches/ms-playwright"/chromium-*/chrome-mac*/*.app/Contents/MacOS/* 2>/dev/null | sort | tail -1)
+  if [ -n "$candidate" ]; then
+    echo "$candidate"
+    return
+  fi
+  if [ -x "/Applications/Chromium.app/Contents/MacOS/Chromium" ]; then
+    echo "/Applications/Chromium.app/Contents/MacOS/Chromium"
+    return
+  fi
+  echo ""
+}
+
+CHROME_BIN="$(find_chrome_bin)"
+if [ -z "$CHROME_BIN" ] || [ ! -x "$CHROME_BIN" ]; then
+  echo "ERROR: no Chrome for Testing / Chromium found (stable Chrome ignores --load-extension)." >&2
+  echo "  Install one (e.g. 'npx playwright install chromium') or set NOBEEF_CHROME_BIN." >&2
+  exit 1
+fi
+
 if [ ! -f "$EXT_DIR/manifest.json" ]; then
   echo "ERROR: no build found at ${EXT_DIR}. Run 'npm run build' first." >&2
   exit 1
@@ -24,7 +52,10 @@ mkdir -p "$DATA_DIR"
 
 # Same unthrottle flags as agent-browser's launcher: an occluded window stops
 # rendering and Playwright click/type times out (see its launch-cdp-chrome.sh).
-open -na "Google Chrome" --args \
+# Launched via the binary directly (not `open`): the Playwright-cached app is
+# not registered with LaunchServices.
+LOG="${DATA_DIR}/launch-${PORT}.log"
+nohup "$CHROME_BIN" \
   --remote-debugging-port="$PORT" \
   --user-data-dir="$DATA_DIR" \
   --no-first-run \
@@ -32,7 +63,9 @@ open -na "Google Chrome" --args \
   --disable-backgrounding-occluded-windows \
   --disable-renderer-backgrounding \
   --disable-background-timer-throttling \
-  --load-extension="$EXT_DIR"
+  --load-extension="$EXT_DIR" \
+  >"$LOG" 2>&1 &
+disown || true
 
 n=0
 until curl -s -m 2 "http://127.0.0.1:${PORT}/json/version" >/dev/null 2>&1; do
