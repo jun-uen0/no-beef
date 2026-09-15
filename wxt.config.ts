@@ -26,7 +26,9 @@ export default defineConfig({
     name: 'no-beef',
     description:
       'Softens hostile comments on social feeds. All analysis runs on-device; no text ever leaves your machine.',
-    permissions: ['storage', 'offscreen'],
+    // nativeMessaging is declared but unused unless the reader sets
+    // bridge: 'native' in the options page; the default never opens a port.
+    permissions: ['storage', 'offscreen', 'nativeMessaging'],
     // Chrome 138 is where the built-in Prompt API (Gemini Nano) went stable for
     // extensions. It needs no permission entry; the expired origin-trial one
     // ("aiLanguageModelOriginTrial") must NOT be re-added.

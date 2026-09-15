@@ -129,6 +129,20 @@
     </p>
   </section>
 
+  <section>
+    <h2>自分のAIエージェントに繋ぐ(上級者向け)</h2>
+    <p class="hint">
+      Chrome内蔵のAIが使えない端末や、判定と言い換えをもっと強いモデルに任せたい場合は、この端末で動いている自分のエージェントに繋げます。拡張が用意するのは接続口だけで、精度と費用は繋いだ側の責任になります。投稿の本文がこの端末から出ないことは変わりません。
+    </p>
+    <label>
+      <input type="checkbox" id="bridge-native" />
+      端末内のエージェントを使う(ネイティブメッセージング)
+    </label>
+    <p class="hint">
+      先に受け側のプログラムを登録する必要があります。手順はリポジトリの<code>host/README.md</code>にあります。登録していない状態で有効にすると、判定は語彙と分類器だけになります。
+    </p>
+  </section>
+
   <p id="status" role="status"></p>
 
   <script type="module" src="./main.ts"></script>
