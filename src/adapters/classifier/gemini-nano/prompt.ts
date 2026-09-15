@@ -1,4 +1,5 @@
 import type { NoBeefConfig } from '../../../core/config';
+import { severityFor } from '../../../core/severity';
 import type { Verdict } from '../../../core/types';
 
 /**
@@ -64,12 +65,6 @@ const LABEL_SCORE: Record<SeverityLabel, number> = {
   mild: 0.65,
   harmful: 0.95,
 };
-
-function severityFor(score: number, config: NoBeefConfig): Verdict['severity'] {
-  if (score >= config.harmfulThreshold) return 'harmful';
-  if (score >= config.mildThreshold) return 'mild';
-  return 'safe';
-}
 
 export function toVerdict(label: SeverityLabel, config: NoBeefConfig): Verdict {
   const score = LABEL_SCORE[label];

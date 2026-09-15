@@ -1,5 +1,7 @@
 node_modules/
 .output/
+# ONNX Runtime backend, copied from node_modules by scripts/copy-ort-runtime.mjs
+public/wasm/
 .wxt/
 dist/
 *.log

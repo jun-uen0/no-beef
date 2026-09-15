@@ -1,4 +1,4 @@
-import type { SiteAdapter } from '../../../core/ports';
+import type { CoverHandlers, SiteAdapter } from '../../../core/ports';
 import type { DetectedPost, Verdict } from '../../../core/types';
 import { cover, reveal } from './cover';
 
@@ -122,8 +122,8 @@ export class XSiteAdapter implements SiteAdapter {
     };
   }
 
-  cover(node: Element, verdict: Verdict, onReveal?: () => void): void {
-    cover(node, verdict, onReveal);
+  cover(node: Element, verdict: Verdict, handlers?: CoverHandlers): void {
+    cover(node, verdict, handlers);
   }
 
   reveal(node: Element): void {

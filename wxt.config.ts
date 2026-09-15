@@ -1,6 +1,27 @@
 import { defineConfig } from 'wxt';
 
+/**
+ * The content script declares http://localhost/* so the fixture pages in
+ * test/fixtures can be driven by a real build. A shipped extension must not
+ * ask for it: it is a host permission reviewers will (rightly) question, and
+ * nothing in the product needs it.
+ *
+ * So it is stripped from production builds and kept for development and for
+ * `npm run build:test`, which is what the verify-*.mjs scripts expect.
+ */
+function stripLocalhostMatches(manifest: { content_scripts?: Array<{ matches?: string[] }> }): void {
+  for (const script of manifest.content_scripts ?? []) {
+    script.matches = script.matches?.filter((match) => !match.includes('localhost'));
+  }
+}
+
 export default defineConfig({
+  hooks: {
+    'build:manifestGenerated': (wxt, manifest) => {
+      const keepLocalhost = process.env.NOBEEF_ALLOW_LOCALHOST === '1' || wxt.config.mode === 'development';
+      if (!keepLocalhost) stripLocalhostMatches(manifest);
+    },
+  },
   manifest: {
     name: 'no-beef',
     description:

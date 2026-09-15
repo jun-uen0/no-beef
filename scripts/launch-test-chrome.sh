@@ -44,7 +44,8 @@ if [ -z "$CHROME_BIN" ] || [ ! -x "$CHROME_BIN" ]; then
 fi
 
 if [ ! -f "$EXT_DIR/manifest.json" ]; then
-  echo "ERROR: no build found at ${EXT_DIR}. Run 'npm run build' first." >&2
+  echo "ERROR: no build found at ${EXT_DIR}. Run 'npm run build:test' first" >&2
+  echo "  (plain 'npm run build' drops the localhost match the fixtures need)." >&2
   exit 1
 fi
 

@@ -6,13 +6,15 @@
   "description": "Chrome extension that softens hostile comments on social feeds using on-device AI only.",
   "type": "module",
   "scripts": {
-    "dev": "wxt",
-    "build": "wxt build",
-    "zip": "wxt zip",
-    "postinstall": "wxt prepare",
+    "dev": "npm run copy:ort && wxt",
+    "build": "npm run copy:ort && wxt build",
+    "zip": "npm run copy:ort && wxt zip",
+    "postinstall": "node scripts/copy-ort-runtime.mjs && wxt prepare",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "copy:ort": "node scripts/copy-ort-runtime.mjs",
+    "build:test": "NOBEEF_ALLOW_LOCALHOST=1 npm run build"
   },
   "devDependencies": {
     "playwright-core": "^1.63.0",

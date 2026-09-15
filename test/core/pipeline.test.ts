@@ -3,6 +3,7 @@ import { AnalysisPipeline } from '../../src/core/pipeline';
 import { MemoryCache } from '../../src/adapters/cache/memory-cache';
 import type { CachePort, ClassifierPort } from '../../src/core/ports';
 import type { Verdict } from '../../src/core/types';
+import { cacheKey } from '../../src/core/normalize';
 
 /** Minimal in-memory stand-in for CachePort, used by tests that don't care about eviction. */
 class StubCache implements CachePort {
@@ -187,5 +188,33 @@ describe('AnalysisPipeline', () => {
 
     expect(expensive.classify).not.toHaveBeenCalled();
     expect(verdict.score).toBe(0.1);
+  });
+});
+
+describe('AnalysisPipeline caching', () => {
+  it('does not cache a result no stage produced', async () => {
+    // A stage that is merely slow to warm up (the ML model loading, the LLM
+    // unavailable) returns null. Remembering "safe" for that post would mean
+    // the stage never gets a second chance at it.
+    const cache = new MemoryCache();
+    const silent: ClassifierPort = { classify: async () => null };
+    const pipeline = new AnalysisPipeline({ stages: [silent], cache });
+
+    const verdict = await pipeline.analyze({ text: 'まだ誰も見ていない投稿' });
+
+    expect(verdict.source).toBe('none');
+    expect(await cache.get(await cacheKey('まだ誰も見ていない投稿'))).toBeUndefined();
+  });
+
+  it('still caches a real verdict', async () => {
+    const cache = new MemoryCache();
+    const speaking: ClassifierPort = {
+      classify: async () => ({ severity: 'harmful', score: 0.9, source: 'lexicon' }),
+    };
+    const pipeline = new AnalysisPipeline({ stages: [speaking], cache });
+
+    await pipeline.analyze({ text: 'はっきり有害な投稿' });
+
+    expect(await cache.get(await cacheKey('はっきり有害な投稿'))).toMatchObject({ severity: 'harmful' });
   });
 });

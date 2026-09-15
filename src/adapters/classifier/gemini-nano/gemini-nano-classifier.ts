@@ -4,8 +4,12 @@ import { withTimeout } from '../../../core/timeout';
 import type { AnalyzeRequest, Verdict } from '../../../core/types';
 import { buildUserPrompt, parseLabel, RESPONSE_SCHEMA, SYSTEM_PROMPT, toVerdict } from './prompt';
 
-/** A stuck inference must not hold up the posts queued behind it. */
-const PROMPT_TIMEOUT_MS = 15_000;
+/**
+ * Budget for the whole attempt, not just the prompt. Creating the session runs
+ * before any per-prompt timer would start, so a hang there used to be
+ * unbounded — and a stuck stage 3 holds up every post queued behind it.
+ */
+const CLASSIFY_TIMEOUT_MS = 15_000;
 /** Posts are short; this only guards against a pathological one overflowing the context. */
 const MAX_INPUT_CHARS = 2_000;
 
@@ -96,21 +100,27 @@ export class GeminiNanoClassifier implements ClassifierPort {
   private basePromise: Promise<LanguageModelSession | null> | null = null;
 
   async classify(req: AnalyzeRequest): Promise<Verdict | null> {
+    try {
+      return await withTimeout(this.attempt(req), CLASSIFY_TIMEOUT_MS, 'gemini nano prompt');
+    } catch {
+      // The service worker may have been torn down and the session with it, or
+      // the session never finished being created. Drop the handle so the next
+      // post rebuilds instead of failing forever.
+      this.basePromise = null;
+      return null;
+    }
+  }
+
+  private async attempt(req: AnalyzeRequest): Promise<Verdict | null> {
     const base = await this.getBaseSession();
     if (!base) return null;
 
     let turn: LanguageModelSession | null = null;
     try {
       turn = await base.clone();
-      const raw = await withTimeout(this.ask(turn, req.text), PROMPT_TIMEOUT_MS, 'gemini nano prompt');
-      const label = parseLabel(raw);
+      const label = parseLabel(await this.ask(turn, req.text));
       if (!label) return null;
       return toVerdict(label, await loadConfig());
-    } catch {
-      // The service worker may have been torn down and the session with it.
-      // Drop the handle so the next post rebuilds instead of failing forever.
-      this.basePromise = null;
-      return null;
     } finally {
       turn?.destroy();
     }

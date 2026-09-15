@@ -19,6 +19,14 @@ export interface AnalyzeRequest {
   lang?: string;
 }
 
+/** A request to soften one post's text. Separate from AnalyzeRequest because
+ * rewriting is not a pipeline stage: it runs only when a reader asks for it. */
+export interface RewriteRequest {
+  text: string;
+  /** BCP-47 language hint when the site adapter knows it (e.g. "ja"). */
+  lang?: string;
+}
+
 /** A post detected by a site adapter in the page DOM. */
 export interface DetectedPost {
   /** Stable id (e.g. tweet status id). Used to avoid re-processing recycled DOM nodes. */
