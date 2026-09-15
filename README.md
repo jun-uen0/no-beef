@@ -16,7 +16,7 @@ Analysis is a three-stage pipeline, cheapest first:
 |---|---|---|
 | 1 | Lexicon: regex match against a curated list of blatant insults | < 1 ms |
 | 2 | On-device ML classifier (multilingual toxicity DistilBERT, int8 ONNX via transformers.js) | tens of ms |
-| 3 | On-device LLM (Chrome built-in Gemini Nano via the Prompt API) for gray-zone posts, sarcasm, and rewriting — *planned (M2+)* | ~seconds |
+| 3 | On-device LLM (Chrome built-in Gemini Nano via the Prompt API) for gray-zone posts and sarcasm; also rewrites on request — *rewriting is M3, in progress* | ~seconds |
 
 Posts are never blocked from rendering. The content script covers a post the moment it is
 judged (or, in cover-first mode, the moment it appears), so the feed stays fast.
@@ -28,7 +28,8 @@ agent, your rules, your cost.
 
 ## Status
 
-Early development. Current milestone: M1 — Japanese-language cover-only MVP for X.
+Early development. M1 (Japanese-language cover-only MVP for X) and M2 (on-device LLM
+stage for gray-zone posts) are done; M3 (rewriting) is in progress.
 See `docs/adr/` for design decisions and `docs/architecture.md` for the roadmap.
 
 ## Development
@@ -51,4 +52,4 @@ behind ports, so any of them can be swapped. Details in `docs/architecture.md`.
 
 ## License
 
-TBD (will be decided before the first public release).
+MIT. See [LICENSE](LICENSE).

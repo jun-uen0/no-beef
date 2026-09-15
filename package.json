@@ -2,6 +2,7 @@
   "name": "no-beef",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Chrome extension that softens hostile comments on social feeds using on-device AI only.",
   "type": "module",
   "scripts": {
