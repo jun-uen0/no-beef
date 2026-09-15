@@ -25,12 +25,16 @@
 └──────────────────────────────────────────────────────┘
                     ↓
 ┌─ offscreen document ─────────────────────────────────┐
-│ OnnxClassifier：transformers.js(WASM/WebGPU)         │
+│ OnnxClassifier：transformers.js(WASM)                │
 │ ※service workerはWASM実行の制約が多いため隔離       │
+│ ⚠ chrome.runtimeしか使えない。設定は読めないので     │
+│   スコアだけ返し、severityはbackgroundが決める       │
+│   (ADR 0008)。wasmはpublic/wasm/から自前で配信       │
 └──────────────────────────────────────────────────────┘
 ```
 
 - メッセージ契約は`src/messaging/protocol.ts`が正本
+- 利用者の閾値を適用するのは`src/core/severity.ts`の`severityFor()`ひとつ。呼ぶのは`chrome.storage`を読める場所(background)に限る(ADR 0008)
 - stage3はbackgroundで直接動く(Prompt APIはservice workerで使えるため、stage2と違いoffscreenが要らない)。アダプタの作りはADR 0005
 - stage3は全投稿には流さない。`PipelineStage.shouldRun(req, current)`で発火を絞る(条件と根拠はADR 0004)
 - Gemini Nanoのモデルダウンロードはオプション画面から利用者が始める。拡張が自動では始めない(ADR 0005)
@@ -60,3 +64,6 @@
 - 統合：ビルド→CDP起動のChromeに`--load-extension`→agent-browser経由で確認
   - `scripts/verify-fixture.mjs`：カバーの判定(harmful/safe)
   - `scripts/verify-rewrite.mjs`：言い換えボタンの導線と、言い換えできないときカバーが残ること
+  - `scripts/verify-stages.mjs`：**各段が本当に答えているか**(段でしか出せない`source`を確認)。
+    stage2が長期間死んでいても誰も気づかなかったので常設した
+  - `scripts/probe-live.mjs`：本番x.comのDOM実測(件数と比率だけ。本文・アカウント名・idは出さない)
