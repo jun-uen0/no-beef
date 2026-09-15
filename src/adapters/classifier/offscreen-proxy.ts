@@ -1,27 +1,12 @@
 import type { ClassifierPort } from '../../core/ports';
 import type { AnalyzeRequest, Verdict } from '../../core/types';
 import { MSG_CLASSIFY, type ClassifyMessage, type ClassifyResponse } from '../../messaging/protocol';
+import { withTimeout } from '../../core/timeout';
 
 /** Built by WXT from entrypoints/offscreen/index.html. */
 const OFFSCREEN_DOCUMENT_URL = 'offscreen.html';
 /** If the offscreen document doesn't answer within this window, degrade to "no opinion". */
 const CLASSIFY_TIMEOUT_MS = 10_000;
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('offscreen classify timed out')), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err: unknown) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
-}
 
 /**
  * Background-side ClassifierPort that proxies to the offscreen document,
@@ -43,7 +28,7 @@ export class OffscreenClassifierProxy implements ClassifierPort {
     const message: ClassifyMessage = { type: MSG_CLASSIFY, text: req.text, lang: req.lang };
 
     try {
-      const response = await withTimeout(chrome.runtime.sendMessage(message), CLASSIFY_TIMEOUT_MS);
+      const response = await withTimeout(chrome.runtime.sendMessage(message), CLASSIFY_TIMEOUT_MS, 'offscreen classify');
       return (response as ClassifyResponse) ?? null;
     } catch {
       return null;

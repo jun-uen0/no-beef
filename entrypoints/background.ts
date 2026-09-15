@@ -1,10 +1,13 @@
 import { AnalysisPipeline } from '../src/core/pipeline';
 import { LexiconClassifier } from '../src/adapters/classifier/lexicon/lexicon-classifier';
 import { OffscreenClassifierProxy } from '../src/adapters/classifier/offscreen-proxy';
+import { GeminiNanoClassifier } from '../src/adapters/classifier/gemini-nano/gemini-nano-classifier';
+import { looksLikeSarcasm } from '../src/core/sarcasm-hint';
 import { MemoryCache } from '../src/adapters/cache/memory-cache';
 import { IndexedDbCache } from '../src/adapters/cache/indexeddb-cache';
 import { LayeredCache } from '../src/adapters/cache/layered-cache';
 import { isAnalyzeMessage } from '../src/messaging/protocol';
+import { VERDICT_CACHE_NAMESPACE } from '../src/core/config';
 
 /**
  * Minimal ambient typings for the Chrome extension APIs used across this
@@ -55,8 +58,19 @@ declare global {
 
 export default defineBackground(() => {
   const pipeline = new AnalysisPipeline({
-    stages: [new LexiconClassifier(), new OffscreenClassifierProxy()],
-    cache: new LayeredCache(new MemoryCache(), new IndexedDbCache()),
+    stages: [
+      new LexiconClassifier(),
+      new OffscreenClassifierProxy(),
+      {
+        classifier: new GeminiNanoClassifier(),
+        // Stage 3 is orders of magnitude costlier than the two above it, so it
+        // only sees posts the classifier was unsure about, plus posts that read
+        // like polite condescension — which score near zero on a toxicity model
+        // and would otherwise never reach it. See ADR 0004.
+        shouldRun: (req, current) => current.severity === 'mild' || looksLikeSarcasm(req.text),
+      },
+    ],
+    cache: new LayeredCache(new MemoryCache(), new IndexedDbCache(VERDICT_CACHE_NAMESPACE)),
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

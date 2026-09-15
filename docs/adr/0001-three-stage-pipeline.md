@@ -12,7 +12,7 @@
 
 1. **語彙・正規表現**(1ms未満)：曖昧さの低い直接的な暴言のみ。文脈依存の語は入れない
 2. **小型分類器**(数十ms)：`onnx-community/distilbert-multilingual-toxicity-classifier-ONNX`(int8量子化136MB)をtransformers.jsで実行。textdetox 2025データセット由来で日本語を明示対応
-3. **生成LLM**(数百ms〜数秒・M2以降)：②がグレー判定したものだけ。第一候補は**Chrome内蔵Gemini Nano(Prompt API・Chrome 138+)**。理由：モデル配布が不要になり、拡張サイズと審査リスクが消える
+3. **生成LLM**(数百ms〜数秒・M2以降)：②がグレー判定したものだけ(⚠ この発火条件はADR 0004が上書きした。丁寧語の皮肉は②で低スコアになるため、グレー帯だけでは③を取りこぼす)。第一候補は**Chrome内蔵Gemini Nano(Prompt API・Chrome 138+)**。理由：モデル配布が不要になり、拡張サイズと審査リスクが消える
 
 ③の代替アダプタ(優先順)：(a)WebLLMでQwen系を実行時ダウンロード(Nanoの端末要件、空き22GB等を満たさない環境向け)(b)**BYOエージェント**：ネイティブメッセージング経由でユーザ自身のClaude Code等を呼ぶ。拡張は接続口だけ提供し、精度・費用の責任を負わない。
 

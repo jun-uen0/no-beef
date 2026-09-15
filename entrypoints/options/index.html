@@ -117,6 +117,18 @@
     <p class="hint">このスコア以上で「軽度」とみなします。</p>
   </section>
 
+  <section>
+    <h2>高度な判定(端末内AI)</h2>
+    <p class="hint">
+      丁寧な言い回しの皮肉や当てこすりは、語彙と分類器だけでは見抜けません。Chrome内蔵のAI(Gemini Nano)が使える端末では、疑わしい投稿だけをこのAIに回して判定します。投稿の本文が端末の外に出ることはありません。
+    </p>
+    <p id="nano-status">確認しています…</p>
+    <button type="button" id="nano-download" hidden>モデルをダウンロードして有効にする</button>
+    <p class="hint" id="nano-requirements" hidden>
+      Chrome 138以降・空きディスク22GB以上・VRAM 4GB超(またはメモリ16GB以上かつ4コア以上)が必要です。
+    </p>
+  </section>
+
   <p id="status" role="status"></p>
 
   <script type="module" src="./main.ts"></script>
