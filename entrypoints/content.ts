@@ -9,6 +9,7 @@ import {
   type RewriteResponse,
 } from '../src/messaging/protocol';
 import { XSiteAdapter } from '../src/adapters/site/x/x-site-adapter';
+import { retryDelayFor } from '../src/core/undecided-retry';
 
 /** A post is 'pending' from the moment we start analyzing it until a Verdict comes back. */
 type PostState = 'pending' | Verdict;
@@ -65,6 +66,8 @@ export default defineContentScript({
     // Latest DOM node per post id: virtual scrolling can swap the node while
     // an analysis is in flight, and the verdict must land on the live one.
     const nodes = new Map<string, Element>();
+    // How many times a post has come back with nobody having an opinion.
+    const undecided = new Map<string, number>();
 
     /**
      * Rewrites already fetched in this tab, by post id. Kept here rather than
@@ -97,9 +100,35 @@ export default defineContentScript({
       });
     }
 
+    /**
+     * A verdict nobody produced is not an answer. It mostly means the ML model
+     * was still loading, which is exactly when a reader is scrolling past the
+     * first screenful — so ask again shortly rather than marking the post safe
+     * for the rest of the session. Bounded by retryDelayFor: where no stage can
+     * ever answer, the undecided verdict is allowed to stand.
+     */
+    function retryIfUndecided(post: DetectedPost, node: Element, id: string, verdict: Verdict): boolean {
+      if (verdict.source !== 'none') {
+        undecided.delete(id);
+        return false;
+      }
+      const attempts = undecided.get(id) ?? 0;
+      const delay = retryDelayFor(attempts);
+      if (delay === null) return false;
+
+      undecided.set(id, attempts + 1);
+      state.set(id, 'pending');
+      setTimeout(() => {
+        if (revealed.has(id)) return;
+        analyze(post, nodes.get(id) ?? node, id);
+      }, delay);
+      return true;
+    }
+
     function analyze(post: DetectedPost, node: Element, id: string): void {
       requestAnalysis(post)
         .then((verdict) => {
+          if (retryIfUndecided(post, node, id, verdict)) return;
           state.set(id, verdict);
           if (revealed.has(id)) return; // user already opted to see this one
           const target = nodes.get(id) ?? node;
