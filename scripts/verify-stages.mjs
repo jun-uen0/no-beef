@@ -12,7 +12,8 @@
 // a text only that stage can answer for, and assert the verdict says so.
 //
 // Prerequisites:
-//   npm run build, then a Chrome with the extension loaded on CDP.
+//   npm run build:test (production builds drop the localhost match this
+//   needs for the fixture pages), then a Chrome with the extension loaded.
 // Run:
 //   node scripts/verify-stages.mjs
 //   NOBEEF_CDP_URL=http://127.0.0.1:9240 node scripts/verify-stages.mjs

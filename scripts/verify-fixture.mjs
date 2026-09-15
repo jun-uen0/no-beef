@@ -1,7 +1,7 @@
 // End-to-end check of the cover behavior against the local fixture page.
 //
 // Prerequisites:
-//   npm run build
+//   npm run build:test      # production builds drop the localhost match
 //   bash scripts/launch-test-chrome.sh          # Chrome with the extension, CDP :9239
 //   python3 -m http.server 8787 -d test/fixtures  # fixture server (content script matches localhost)
 // Run:

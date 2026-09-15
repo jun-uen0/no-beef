@@ -1,7 +1,7 @@
 // End-to-end check of the rewrite control on the cover (M3 / ADR 0007).
 //
 // Prerequisites are the same as verify-fixture.mjs:
-//   npm run build
+//   npm run build:test      # production builds drop the localhost match
 //   bash scripts/launch-test-chrome.sh          # Chrome with the extension, CDP :9239
 //   python3 -m http.server 8787 -d test/fixtures
 // Run:

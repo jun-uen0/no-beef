@@ -48,7 +48,9 @@ export default defineContentScript({
   matches: [
     '*://x.com/*',
     '*://twitter.com/*',
-    // dev/testing only against local fixture HTML; remove before store submission (M5).
+    // Fixture pages only. wxt.config.ts strips this from production builds, so
+    // a shipped extension never asks for localhost; `npm run build:test` keeps
+    // it, which is what the verify-*.mjs scripts build with.
     'http://localhost/*',
   ],
   runAt: 'document_idle',

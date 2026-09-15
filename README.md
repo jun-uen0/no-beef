@@ -52,7 +52,12 @@ npm install
 npm run dev        # WXT dev mode (loads into a Chromium instance)
 npm test           # unit tests (vitest)
 npm run build      # production build to .output/
+npm run build:test # same, but keeps the localhost match the fixtures need
 ```
+
+The production build deliberately drops the `http://localhost/*` content-script
+match, so anything driving the pages in `test/fixtures/` must build with
+`build:test`.
 
 To load manually: build, then `chrome://extensions` → Developer mode → "Load unpacked" →
 select `.output/chrome-mv3/`.
@@ -62,6 +67,11 @@ select `.output/chrome-mv3/`.
 Hexagonal: the analysis pipeline (`src/core/`) is pure TypeScript with no browser APIs.
 Site DOM handling, the ML classifier, caching, and (later) LLM backends are adapters
 behind ports, so any of them can be swapped. Details in `docs/architecture.md`.
+
+## Privacy
+
+Nothing is collected and nothing is sent anywhere — see [docs/privacy.md](docs/privacy.md)
+for exactly what is read, stored, and downloaded.
 
 ## License
 

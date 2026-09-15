@@ -1,0 +1,19 @@
+<!--
+  Source of truth for the extension icon. PNGs are rendered from this file:
+    for s in 16 32 48 128; do rsvg-convert -w $s -h $s assets/icon.svg -o public/icon/$s.png; done
+
+  The mark is the product: a post, with something drawn over it. The dark
+  ground and the translucent band are the same colours the cover overlay uses
+  on the page (src/adapters/site/x/cover.ts), so the icon and the thing it
+  stands for look like one object. Shapes are deliberately few and heavy —
+  at 16px anything finer turns to mud.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="28" fill="#15181C"/>
+  <!-- speech bubble -->
+  <path d="M26 30h76a10 10 0 0 1 10 10v44a10 10 0 0 1-10 10H60l-20 18V94H26a10 10 0 0 1-10-10V40a10 10 0 0 1 10-10z"
+        fill="#FFFFFF"/>
+  <!-- the cover: a band across the bubble, echoing the on-page overlay -->
+  <rect x="16" y="58" width="96" height="24" fill="#15181C" opacity="0.8"/>
+  <rect x="34" y="66" width="60" height="8" rx="4" fill="#FFFFFF" opacity="0.92"/>
+</svg>
