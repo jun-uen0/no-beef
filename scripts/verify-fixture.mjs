@@ -11,6 +11,13 @@
 //   - each article[data-testid="tweet"] carries data-expected="harmful"|"safe"|"gray"
 //   - the extension's cover host carries data-nobeef-cover="1"
 // Exit code 0 = all expectations met, 1 = failures (details on stdout).
+//
+// Stage 3 is NOT covered here. Injecting a stand-in Prompt API into the service
+// worker was tried and abandoned: Playwright's worker evaluate() runs in its own
+// execution context, so the stub is visible to the test and not to the extension,
+// which quietly keeps using the real API. The run then "fails" for a reason that
+// has nothing to do with the code. Stage 3's wiring is covered instead by
+// test/adapters/gemini-nano-classifier.test.ts, which stubs the API in-process.
 
 import { chromium } from 'playwright-core';
 
