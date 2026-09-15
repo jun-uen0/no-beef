@@ -180,10 +180,12 @@ export function cover(node: Element, verdict: Verdict, handlers?: CoverHandlers)
   };
 
   function render(state: CoverState): void {
-    // A cover whose node was recycled out from under us has nothing to draw
-    // into; bail rather than paint an overlay that is no longer on the page.
-    if (!host.isConnected) return;
-
+    // Deliberately does NOT check host.isConnected. It used to, on the theory
+    // that a recycled node is not worth painting — but X detaches and
+    // re-attaches post nodes constantly while scrolling, so a rewrite that
+    // arrived during one of those windows was thrown away and the cover sat on
+    // its spinner forever. Writing into a detached shadow root costs nothing
+    // and is correct the moment the node comes back.
     host.setAttribute(STATE_ATTR, state);
     overlay.replaceChildren();
     const buttons = document.createElement('div');

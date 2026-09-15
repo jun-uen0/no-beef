@@ -5,11 +5,17 @@ import type { RewriteRequest } from '../../../core/types';
 import { buildUserPrompt, parseRewrite, RESPONSE_SCHEMA, SYSTEM_PROMPT } from './prompt';
 
 /**
- * Longer than the classifier's budget: this call generates a sentence rather
- * than a word, and the reader is watching a spinner they asked for. Still
- * bounded, because a hung session must not leave that spinner forever.
+ * Budget for the WHOLE attempt, not just the prompt: creating the session can
+ * itself hang, and it happens before any per-prompt timer would start. That
+ * gap was not theoretical — a cover on a live timeline sat spinning for over a
+ * minute with no failure state to fall into, because the clock only ever
+ * covered the part that was already working.
+ *
+ * Generous, because a cold session legitimately takes several seconds and the
+ * reader asked for this one. Bounded, because a spinner with no end is worse
+ * than an honest "could not do it".
  */
-const PROMPT_TIMEOUT_MS = 20_000;
+const REWRITE_TIMEOUT_MS = 30_000;
 /** Posts are short; this only guards against a pathological one overflowing the context. */
 const MAX_INPUT_CHARS = 2_000;
 
@@ -41,6 +47,18 @@ export class GeminiNanoRewriter implements RewriterPort {
   private basePromise: Promise<LanguageModelSession | null> | null = null;
 
   async rewrite(req: RewriteRequest): Promise<string | null> {
+    try {
+      return await withTimeout(this.attempt(req), REWRITE_TIMEOUT_MS, 'gemini nano rewrite');
+    } catch {
+      // Covers a torn-down service worker, a rejected prompt, and a session
+      // that never finished being created. Drop the handle so the next request
+      // rebuilds instead of failing forever.
+      this.basePromise = null;
+      return null;
+    }
+  }
+
+  private async attempt(req: RewriteRequest): Promise<string | null> {
     const base = await this.getBaseSession();
     if (!base) return null;
 
@@ -48,15 +66,9 @@ export class GeminiNanoRewriter implements RewriterPort {
     let turn: LanguageModelSession | null = null;
     try {
       turn = await base.clone();
-      const raw = await withTimeout(this.ask(turn, original), PROMPT_TIMEOUT_MS, 'gemini nano rewrite');
-      const candidate = parseRewrite(raw);
+      const candidate = parseRewrite(await this.ask(turn, original));
       if (!candidate) return null;
       return checkRewrite(original, candidate) === null ? candidate : null;
-    } catch {
-      // The service worker may have been torn down and the session with it.
-      // Drop the handle so the next request rebuilds instead of failing forever.
-      this.basePromise = null;
-      return null;
     } finally {
       turn?.destroy();
     }

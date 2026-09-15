@@ -162,6 +162,20 @@ describe('GeminiNanoClassifier', () => {
     expect(calls.create).toHaveLength(2);
   });
 
+  it('gives up when the SESSION never finishes being created', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('LanguageModel', {
+      async availability() { return 'available'; },
+      create: () => new Promise(() => {}),
+      async params() { return null; },
+    });
+
+    const pending = new GeminiNanoClassifier().classify({ text: 'テスト' });
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    expect(await pending).toBeNull();
+  });
+
   it('gives up on a model that never answers, instead of stalling the pipeline', async () => {
     vi.useFakeTimers();
     stubLanguageModel({ answer: () => new Promise<string>(() => {}) });

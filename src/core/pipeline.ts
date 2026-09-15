@@ -79,7 +79,14 @@ export class AnalysisPipeline {
       if (result.severity === 'harmful') break;
     }
 
-    await this.cache.set(key, result).catch(() => {});
+    // Only remember an answer somebody actually gave. A result still carrying
+    // source 'none' means every stage was skipped or failed — the ML model was
+    // still loading, the LLM was unavailable — and caching that freezes a
+    // non-answer in place: the post is marked safe forever, and the stage that
+    // was merely slow never gets a second chance at it. This is not
+    // hypothetical. While stage 2 was broken, a browsing session wrote 17
+    // 'none' verdicts that outlived the fix.
+    if (result.source !== 'none') await this.cache.set(key, result).catch(() => {});
     return result;
   }
 

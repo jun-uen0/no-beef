@@ -168,12 +168,29 @@ describe('GeminiNanoRewriter', () => {
     expect(calls.create).toHaveLength(2);
   });
 
+  it('gives up when the SESSION never finishes being created', async () => {
+    // The gap that let a cover spin on a live timeline for over a minute: the
+    // old timer started after create() resolved, so a hang here was unbounded.
+    vi.useFakeTimers();
+    vi.stubGlobal('LanguageModel', {
+      async availability() { return 'available'; },
+      create: () => new Promise(() => {}),
+      async params() { return null; },
+    });
+
+    const pending = new GeminiNanoRewriter().rewrite({ text: HARSH });
+    await vi.advanceTimersByTimeAsync(35_000);
+
+    expect(await pending).toBeNull();
+  });
+
   it('gives up on a model that never answers, instead of spinning forever', async () => {
     vi.useFakeTimers();
     stubLanguageModel({ answer: () => new Promise<string>(() => {}) });
 
     const pending = new GeminiNanoRewriter().rewrite({ text: HARSH });
-    await vi.advanceTimersByTimeAsync(25_000);
+    // Past REWRITE_TIMEOUT_MS, which covers the whole attempt.
+    await vi.advanceTimersByTimeAsync(35_000);
 
     expect(await pending).toBeNull();
   });

@@ -35,7 +35,12 @@ const FIXTURE_URL = process.env.NOBEEF_FIXTURE_URL ?? 'http://localhost:8787/x-t
 const SETTLE_TIMEOUT_MS = Number(process.env.NOBEEF_TIMEOUT_MS ?? 180_000);
 const POLL_MS = 1000;
 // How long the cover set has to stay unchanged before the run is believed.
-const QUIET_MS = 8000;
+// 8s was not enough: after an extension reload, stage 3's first call also pays
+// for creating the Gemini Nano session, and the gray-zone line reported "shown"
+// for a post that was covered moments later. The pass/fail rule never depended
+// on it, but a line that is wrong half the time teaches you to ignore the
+// output, so it waits long enough to be worth reading.
+const QUIET_MS = 20_000;
 
 function snapshot(page) {
   return page.$$eval('article[data-testid="tweet"]', (articles) =>
