@@ -32,5 +32,10 @@ export const CONFIG_STORAGE_KEY = 'nobeef:config';
  * built to catch kept their pre-LLM verdicts.
  *
  * Entries under older namespaces become unreachable rather than deleted.
+ *
+ * v3 exists because stage 2 was never running: the ONNX backend was blocked by
+ * MV3's CSP, so every post it looked at was cached as "no stage had an
+ * opinion". Those entries would otherwise outlive the fix and keep the reader
+ * on the verdicts of a pipeline that was missing its middle stage.
  */
-export const VERDICT_CACHE_NAMESPACE = 'v2-llm';
+export const VERDICT_CACHE_NAMESPACE = 'v3-onnx-alive';

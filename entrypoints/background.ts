@@ -37,6 +37,8 @@ declare global {
 
   interface NoBeefRuntime {
     sendMessage(message: unknown): Promise<unknown>;
+    /** Absolute URL of a file packaged with the extension, e.g. "wasm/". */
+    getURL(path: string): string;
     onMessage: {
       addListener(
         callback: (
